@@ -40,7 +40,7 @@ struct Btn {
   unsigned long lastToggleMs;
   String label;
 };
-Btn buttons[6]; // zwiększamy do 6 przycisków dla layoutu 2x3
+Btn buttons[6]; // Expand to 6 buttons for 2x3 layout
 
 const unsigned long toggleDebounceMs = 300;
 
@@ -50,16 +50,16 @@ enum LayoutType {
   LAYOUT_3x2 = 1
 };
 LayoutType currentLayout = LAYOUT_2x2;
-int buttonCount = 4; // domyślnie 4 przyciski
+int buttonCount = 4; // Default 4 buttons
 
 // --- Screensaver / deep sleep ---
 unsigned long lastInteraction = 0;
-unsigned long SCREENSAVER_TIMEOUT = 900000; // 15 min domyślnie, teraz konfigurowalny
+unsigned long SCREENSAVER_TIMEOUT = 900000; // 15 min default, now configurable
 bool screensaverActive = false;
 
-// --- Kolory przycisków (konfigurowalny) ---
+// --- Button colors (configurable) ---
 struct ButtonColors {
-  uint16_t normal[6]; // zwiększamy do 6 kolorów
+  uint16_t normal[6]; // Expand to 6 colors
   uint16_t active;
   uint16_t background;
 } colors;
@@ -69,18 +69,18 @@ Preferences prefs;
 
 // --- Info mode configuration ---
 bool infoModeEnabled = true;
-unsigned long INFO_MODE_TIMEOUT = 120000; // 2 minuty domyślnie
+unsigned long INFO_MODE_TIMEOUT = 120000; // 2 minutes default
 bool infoModeActive = false;
 unsigned long lastInfoUpdate = 0;
-const unsigned long INFO_UPDATE_INTERVAL = 1000; // aktualizuj co sekundę
-bool infoModeFirstDraw = true; // Globalna flaga dla pierwszego rysowania
+const unsigned long INFO_UPDATE_INTERVAL = 1000; // Update every second
+bool infoModeFirstDraw = true; // Global flag for first draw
 
 struct SystemInfo {
   String time;
   String date;
   float cpu;
   float ram;
-} systemInfo, previousSystemInfo; // dodaj poprzednie wartości
+} systemInfo, previousSystemInfo; // Add previous values
 
 // --- Forward declarations ---
 void drawButtons();
@@ -90,6 +90,7 @@ void handleSettings();
 void handleGetSettings();
 void handleRoot();
 void showApiUrlForStartup(const String &apiUrl, unsigned long ms);
+void showStartupScreen();
 void enterDeepSleep();
 void saveStates();
 void loadStates();
@@ -132,15 +133,18 @@ void setup() {
   tft.init();
   tft.setRotation(1);
 
+  // Show startup screen
+  showStartupScreen();
+
   // Setup button layout based on current configuration
   setupButtonLayout();
 
-  // WiFi - ustaw hostname przed połączeniem
+  // WiFi - set hostname before connection
   WiFi.setHostname("ESP32-CheapDeck");
   WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
   WiFi.setHostname("ESP32-CheapDeck");
   
-  Serial.printf("Łączenie z WiFi: %s\n", SSID);
+  Serial.printf("Connecting to WiFi: %s\n", SSID);
   WiFi.begin(SSID, PASSWORD);
   int tries = 0;
   while (WiFi.status() != WL_CONNECTED && tries < 40) {
@@ -152,15 +156,15 @@ void setup() {
   String apiUrl;
   if (WiFi.status() == WL_CONNECTED) {
     String ip = WiFi.localIP().toString();
-    Serial.printf("Połączono. IP: %s\n", ip.c_str());
+    Serial.printf("Connected. IP: %s\n", ip.c_str());
     Serial.printf("Hostname: ESP32-CheapDeck\n");
     apiUrl = String("http://") + ip + String("/state");
   } else {
-    Serial.println("Brak WiFi - API niedostępne.");
+    Serial.println("No WiFi - API unavailable.");
     apiUrl = "WiFi not connected";
   }
 
-  // Handlery
+  // Handlers
   server.on("/", HTTP_GET, handleRoot);
   server.on("/state", HTTP_GET, handleState);
   server.on("/config", HTTP_POST, handleConfig);
@@ -192,13 +196,13 @@ void loop() {
       unsigned long now = millis();
       lastInteraction = now;
 
-      // Jeśli tryb info był aktywny → wróć do przycisków
+      // If info mode was active → return to buttons
       if (infoModeActive) {
         resetInfoMode();
         return;
       }
 
-      // Jeśli wygaszacz był aktywny → wybudzamy ekran
+      // If screensaver was active → wake up screen
       if (screensaverActive) {
         screensaverActive = false;
         drawButtons();
@@ -222,13 +226,13 @@ void loop() {
     }
   }
 
-  // Sprawdź czy przejść w tryb info
+  // Check if should enter info mode
   if (infoModeEnabled && !infoModeActive && !screensaverActive && 
       (millis() - lastInteraction > INFO_MODE_TIMEOUT)) {
     infoModeActive = true;
     infoModeFirstDraw = true;
     
-    // Resetuj dane aby wymusić pełne odświeżenie
+    // Reset data to force full refresh
     previousSystemInfo.time = "";
     previousSystemInfo.date = "";
     previousSystemInfo.cpu = -1;
@@ -237,17 +241,17 @@ void loop() {
     drawInfoMode();
   }
 
-  // Aktualizuj info mode jeśli aktywny
+  // Update info mode if active
   if (infoModeActive && (millis() - lastInfoUpdate > INFO_UPDATE_INTERVAL)) {
     drawInfoMode();
     lastInfoUpdate = millis();
   }
 
-  // Deep sleep - sprawdź po trybie info
+  // Deep sleep - check after info mode
   if (!screensaverActive && 
       (millis() - lastInteraction > SCREENSAVER_TIMEOUT)) {
     
-    // Jeśli tryb info jest aktywny, najpierw go wyłącz
+    // If info mode is active, first turn it off
     if (infoModeActive) {
       infoModeActive = false;
     }
@@ -256,7 +260,7 @@ void loop() {
   }
 }
 
-// --- Funkcja pomocnicza do resetowania trybu info ---
+// --- Helper function to reset info mode ---
 void resetInfoMode() {
   infoModeActive = false;
   infoModeFirstDraw = true;
@@ -294,13 +298,13 @@ void fetchSystemInfo() {
 }
 
 void drawInfoMode() {
-  // Sprawdź czy dane się zmieniły
+  // Check if data changed
   bool timeChanged = systemInfo.time != previousSystemInfo.time;
   bool dateChanged = systemInfo.date != previousSystemInfo.date;
   bool cpuChanged = abs(systemInfo.cpu - previousSystemInfo.cpu) > 0.1;
   bool ramChanged = abs(systemInfo.ram - previousSystemInfo.ram) > 0.1;
   
-  // Jeśli to pierwsze wywołanie, narysuj wszystko
+  // If first call, draw everything
   if (infoModeFirstDraw) {
     tft.fillScreen(colors.background);
     infoModeFirstDraw = false;
@@ -313,7 +317,7 @@ void drawInfoMode() {
   int centerX = tft.width() / 2;
   int centerY = tft.height() / 2;
   
-  // Narysuj tylko zmienione elementy
+  // Draw only changed elements
   if (dateChanged) {
     tft.fillRect(0, centerY - 60, tft.width(), 30, colors.background);
     tft.drawString(systemInfo.date, centerX, centerY - 40, 2);
@@ -336,7 +340,7 @@ void drawInfoMode() {
     tft.drawString(ramText, centerX, centerY + 40, 2);
   }
   
-  // Zapisz aktualne wartości jako poprzednie
+  // Save current values as previous
   previousSystemInfo = systemInfo;
 }
 
@@ -364,7 +368,7 @@ void setupButtonLayout() {
       if (buttons[i].label=="") buttons[i].label = String(i+1);
     }
   } else if (currentLayout == LAYOUT_3x2) {
-    // Layout 3x2 (3 kolumny, 2 rzędy)
+    // Layout 3x2 (3 columns, 2 rows)
     int availableW = w - margin*4;
     int availableH = h - margin*3;
     int btnSize = min(availableW/3, availableH/2);
@@ -391,7 +395,7 @@ void drawButtons() {
 
   for (int i = 0; i < buttonCount; i++) {
     Btn &b = buttons[i];
-    uint16_t color = b.state ? colors.active : colors.normal[i]; // używaj właściwego koloru dla każdego przycisku
+    uint16_t color = b.state ? colors.active : colors.normal[i]; // Use proper color for each button
     tft.fillRect(b.x, b.y, b.size, b.size, color);
     tft.drawRect(b.x, b.y, b.size, b.size, TFT_WHITE);
 
@@ -543,7 +547,7 @@ void handleSettings() {
       changed = true;
       Serial.printf("Info mode enabled: %s\n", infoModeEnabled ? "true" : "false");
       
-      // Jeśli wyłączono tryb info a był aktywny, wróć do przycisków
+      // If info mode was disabled and was active, return to buttons
       if (!infoModeEnabled && infoModeActive) {
         resetInfoMode();
       }
@@ -586,7 +590,7 @@ void handleSettings() {
   // Parse button colors
   if (doc.containsKey("colors") && doc["colors"].is<JsonArray>()) {
     JsonArray colorArray = doc["colors"];
-    for (int i = 0; i < 6 && i < colorArray.size(); i++) { // parsuj wszystkie 6 kolorów
+    for (int i = 0; i < 6 && i < colorArray.size(); i++) { // Parse all 6 colors
       String hexColor = colorArray[i].as<String>();
       uint16_t newColor = hexToRGB565(hexColor);
       if (newColor != colors.normal[i]) {
@@ -602,7 +606,7 @@ void handleSettings() {
     if (layoutChanged) {
       setupButtonLayout();
     }
-    // Nie rysuj przycisków jeśli tryb info jest aktywny
+    // Don't draw buttons if info mode is active
     if (!infoModeActive) {
       drawButtons();
     }
@@ -626,7 +630,7 @@ void showApiUrlForStartup(const String &apiUrl, unsigned long ms) {
 
 void saveStates() {
   prefs.begin("buttons", false);
-  for (int i = 0; i < 6; i++) { // zapisuj wszystkie 6 przycisków
+  for (int i = 0; i < 6; i++) { // Save all 6 buttons
     prefs.putBool(("state" + String(i)).c_str(), buttons[i].state);
     prefs.putString(("label" + String(i)).c_str(), buttons[i].label);
   }
@@ -666,7 +670,7 @@ void loadSettings() {
 // --- Load button states and labels from NVS ---
 void loadStates() {
   prefs.begin("buttons", true); // read-only
-  for (int i = 0; i < 6; i++) { // wczytuj wszystkie 6 przycisków
+  for (int i = 0; i < 6; i++) { // Load all 6 buttons
     buttons[i].state = prefs.getBool(("state" + String(i)).c_str(), false);
     buttons[i].label = prefs.getString(("label" + String(i)).c_str(), String(i+1));
   }
@@ -686,7 +690,7 @@ void initDefaultColors() {
 
 // --- Enter deep sleep ---
 void enterDeepSleep() {
-  Serial.println("Wchodzę w deep sleep...");
+  Serial.println("Entering deep sleep...");
   tft.fillScreen(tft.color565(0,0,0));
   tft.setTextDatum(MC_DATUM);
   tft.setTextColor(TFT_WHITE);
@@ -719,4 +723,21 @@ String rgb565ToHex(uint16_t color) {
   char hexStr[7];
   sprintf(hexStr, "%02x%02x%02x", r, g, b);
   return String(hexStr);
+}
+
+void showStartupScreen() {
+  // Blue background
+  tft.fillScreen(tft.color565(70, 130, 180)); // Steel blue background
+  
+  tft.setTextDatum(MC_DATUM);
+  
+  // Large black "Cheap Deck" text
+  tft.setTextColor(TFT_BLACK);
+  tft.drawString("Cheap Deck", tft.width()/2, tft.height()/2 - 10, 4);
+  
+  // Small gray "Version 1.1" text
+  tft.setTextColor(tft.color565(128, 128, 128)); // Gray color
+  tft.drawString("Version 1.1", tft.width()/2, tft.height()/2 + 25, 2);
+  
+  delay(2000); // Show for 2 seconds
 }
