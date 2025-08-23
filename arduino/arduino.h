@@ -67,7 +67,13 @@ struct ButtonColors {
 // --- Preferences (NVS) ---
 Preferences prefs;
 
-// --- Info mode configuration ---
+// --- AP (fallback) ---
+bool apModeActive = false;
+String apSSID = "CheapDeck-Setup";
+String savedSSID = String(SSID);
+String savedPassword = String(PASSWORD);
+
+// --- Info mode configuration (restored) ---
 bool infoModeEnabled = true;
 unsigned long INFO_MODE_TIMEOUT = 120000; // 2 minutes default
 bool infoModeActive = false;
@@ -80,7 +86,7 @@ struct SystemInfo {
   String date;
   float cpu;
   float ram;
-} systemInfo, previousSystemInfo; // Add previous values
+} systemInfo, previousSystemInfo;
 
 // --- Forward declarations ---
 void drawButtons();
@@ -89,8 +95,10 @@ void handleConfig();
 void handleSettings();
 void handleGetSettings();
 void handleRoot();
+void handleSaveCredentials(); // <-- new
 void showApiUrlForStartup(const String &apiUrl, unsigned long ms);
 void showStartupScreen();
+void showAPModeScreen(); // <-- new
 void enterDeepSleep();
 void saveStates();
 void loadStates();
@@ -105,6 +113,7 @@ void handleSystemInfo();
 void drawInfoMode();
 void fetchSystemInfo();
 void resetInfoMode();
+void handleSerialCommands(); // New: declaration for serial command handler
 
 long clampLong(long v, long a, long b) {
   if (v < a) return a;
@@ -144,8 +153,8 @@ void setup() {
   WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
   WiFi.setHostname("ESP32-CheapDeck");
   
-  Serial.printf("Connecting to WiFi: %s\n", SSID);
-  WiFi.begin(SSID, PASSWORD);
+  Serial.printf("Connecting to WiFi: %s\n", savedSSID.c_str());
+  WiFi.begin(savedSSID.c_str(), savedPassword.c_str());
   int tries = 0;
   while (WiFi.status() != WL_CONNECTED && tries < 40) {
     delay(500); Serial.print(".");
@@ -160,8 +169,14 @@ void setup() {
     Serial.printf("Hostname: ESP32-CheapDeck\n");
     apiUrl = String("http://") + ip + String("/state");
   } else {
-    Serial.println("No WiFi - API unavailable.");
-    apiUrl = "WiFi not connected";
+    Serial.println("No WiFi - entering AP setup mode.");
+    // Start SoftAP for configuration
+    WiFi.softAP(apSSID.c_str());
+    apModeActive = true;
+    IPAddress apIP = WiFi.softAPIP();
+    Serial.printf("AP started: %s - %s\n", apSSID.c_str(), apIP.toString().c_str());
+    apiUrl = String("http://") + apIP.toString() + String("/");
+    showAPModeScreen();
   }
 
   // Handlers
@@ -171,18 +186,28 @@ void setup() {
   server.on("/settings", HTTP_POST, handleSettings);
   server.on("/settings", HTTP_GET, handleGetSettings);
   server.on("/system-info", HTTP_POST, handleSystemInfo);
+  server.on("/save-credentials", HTTP_POST, handleSaveCredentials); // <-- new
   server.begin();
   Serial.println("HTTP server started");
 
   showApiUrlForStartup(apiUrl, 3000);
 
-  drawButtons();
-  lastInteraction = millis();
+  // If we started in AP/config mode, restore AP setup screen after showing API URL
+  if (apModeActive) {
+    showAPModeScreen(); // keep AP configuration screen visible
+    lastInteraction = millis();
+  } else {
+    drawButtons();
+    lastInteraction = millis();
+  }
 }
 
 void loop() {
   server.handleClient();
 
+  // Check serial for special commands (e.g. forget wifi)
+  handleSerialCommands();
+  
   bool touchedNow = ts.touched();
 
   if (touchedNow) {
@@ -409,6 +434,23 @@ void drawButtons() {
 // --- Root API ---
 void handleRoot() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
+  // If we are in AP/config mode, show a simple HTML configurator
+  if (apModeActive) {
+    String html = "<!doctype html><html><head><meta charset='utf-8'><title>CheapDeck Setup</title></head><body>";
+    html += "<h2>CheapDeck Wi-Fi Setup</h2>";
+    html += "<p>Connect to Wi-Fi network: <strong>" + apSSID + "</strong></p>";
+    html += "<p>Open this page and enter your network credentials below.</p>";
+    html += "<form method='POST' action='/save-credentials'>";
+    html += "SSID:<br><input name='ssid' /><br>";
+    html += "Password:<br><input name='password' type='password' /><br><br>";
+    html += "<input type='submit' value='Save and Connect' />";
+    html += "</form>";
+    html += "<p>Or send JSON POST to /save-credentials: {\"ssid\":\"...\",\"password\":\"...\"}</p>";
+    html += "</body></html>";
+    server.send(200, "text/html", html);
+    return;
+  }
+
   server.sendHeader("Content-Type", "text/plain");
   server.send(200, "text/plain", "cheap deck api");
 }
@@ -664,6 +706,11 @@ void loadSettings() {
   for (int i = 0; i < 6; i++) {
     colors.normal[i] = prefs.getUShort(("color" + String(i)).c_str(), colors.normal[i]);
   }
+
+  // Load saved WiFi credentials if present
+  savedSSID = prefs.getString("wifi_ssid", savedSSID);
+  savedPassword = prefs.getString("wifi_pass", savedPassword);
+
   prefs.end();
 }
 
@@ -740,4 +787,125 @@ void showStartupScreen() {
   tft.drawString("Version 1.1", tft.width()/2, tft.height()/2 + 25, 2);
   
   delay(2000); // Show for 2 seconds
+}
+
+void showAPModeScreen() {
+  tft.fillScreen(colors.background);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(TFT_WHITE);
+  tft.drawString("AP Mode - Setup WiFi", tft.width()/2, tft.height()/2 - 30, 2);
+  tft.drawString("Connect to Wi-Fi:", tft.width()/2, tft.height()/2 - 8, 2);
+  tft.drawString(apSSID, tft.width()/2, tft.height()/2 + 10, 4);
+  tft.drawString("Open http://192.168.4.1/", tft.width()/2, tft.height()/2 + 45, 2);
+}
+
+// --- New: save credentials handler ---
+void handleSaveCredentials() {
+  Serial.println("=== SAVE CREDENTIALS REQUEST ===");
+
+  String newSSID = "";
+  String newPass = "";
+
+  // Prefer JSON body if provided
+  if (server.hasArg("plain") && server.arg("plain").length() > 0) {
+    String body = server.arg("plain");
+    DynamicJsonDocument doc(512);
+    DeserializationError error = deserializeJson(doc, body);
+    if (!error) {
+      if (doc.containsKey("ssid")) newSSID = doc["ssid"].as<String>();
+      if (doc.containsKey("password")) newPass = doc["password"].as<String>();
+    } else {
+      Serial.printf("JSON parse error in save-credentials: %s\n", error.c_str());
+    }
+  }
+
+  // Fallback: form fields (application/x-www-form-urlencoded)
+  if (newSSID.length() == 0) {
+    if (server.hasArg("ssid")) newSSID = server.arg("ssid");
+    if (server.hasArg("password")) newPass = server.arg("password");
+  }
+
+  if (newSSID.length() == 0) {
+    Serial.println("No SSID provided");
+    server.send(400, "text/plain", "Missing ssid");
+    return;
+  }
+
+  Serial.printf("Attempting to save/connect to SSID: %s\n", newSSID.c_str());
+
+  // Save to NVS
+  prefs.begin("settings", false);
+  prefs.putString("wifi_ssid", newSSID);
+  prefs.putString("wifi_pass", newPass);
+  prefs.end();
+
+  // Try to connect using new credentials
+  WiFi.softAPdisconnect(true);
+  delay(200);
+  WiFi.begin(newSSID.c_str(), newPass.c_str());
+
+  int tries = 0;
+  while (WiFi.status() != WL_CONNECTED && tries < 40) {
+    delay(500);
+    Serial.print(".");
+    tries++;
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("Connected with new credentials. Restarting...");
+    server.send(200, "text/plain", "OK");
+    delay(500);
+    ESP.restart();
+    return;
+  } else {
+    // Failed - re-enable AP and inform user
+    WiFi.softAP(apSSID.c_str());
+    apModeActive = true;
+    IPAddress apIP = WiFi.softAPIP();
+    Serial.println("Failed to connect with provided credentials. AP restored.");
+    server.send(500, "text/plain", "Failed to connect with provided credentials");
+    showAPModeScreen();
+    return;
+  }
+}
+
+// --- New: handle serial commands ---
+// Send one of these lines over serial to clear WiFi credentials and start AP:
+//   FORGET
+//   RESET_WIFI
+//   CLEAR_WIFI
+void handleSerialCommands() {
+  if (Serial && Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    cmd.toUpperCase();
+    if (cmd.length() == 0) return;
+
+    if (cmd == "FORGET" || cmd == "RESET_WIFI" || cmd == "CLEAR_WIFI") {
+      Serial.println("Command received: clear WiFi credentials");
+
+      // Remove saved credentials from NVS
+      prefs.begin("settings", false);
+      prefs.remove("wifi_ssid");
+      prefs.remove("wifi_pass");
+      prefs.end();
+
+      // Reset in-memory values
+      savedSSID = String(SSID);
+      savedPassword = String(PASSWORD);
+
+      // Disconnect and start AP for reconfiguration
+      WiFi.disconnect(true);
+      delay(100);
+      WiFi.softAP(apSSID.c_str());
+      apModeActive = true;
+
+      // Show AP screen and inform user
+      showAPModeScreen();
+      Serial.println("WiFi credentials cleared. AP mode started (CheapDeck-Setup).");
+    } else {
+      Serial.printf("Unknown command: %s\n", cmd.c_str());
+    }
+  }
 }
