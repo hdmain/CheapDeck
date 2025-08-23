@@ -51,6 +51,7 @@ You can flash the firmware in two ways:
 🔹 Option A: Web Flasher (Recommended, No IDE Needed)
 
 Open the CheapDeck Web Flasher
+https://hdmain.github.io/CheapDeck_Webflasher
  in Google Chrome or Microsoft Edge
 
 Plug in your ESP32 via USB
