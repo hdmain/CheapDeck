@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+    <title>ESP32 Control Panel</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- Status indicator -->
+<div class="status-indicator" id="statusIndicator">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Connecting...</span>
+</div>
+
+<!-- Theme toggle -->
+<div class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+    <span>Theme</span>
+</div>
+
+<h1>ESP32 Control Panel</h1>
+
+<div class="section">
+    <h2>Button Names</h2>
+    <div id="buttonConfigContainer">
+        <!-- Button configuration will be dynamically generated -->
+    </div>
+    <button onclick="updateButtonNames()">Update Button Names</button>
+</div>
+
+<div class="section">
+    <h2>Key Mapping</h2>
+    <div id="keyMappingContainer">
+        <!-- Key mapping will be dynamically generated -->
+    </div>
+    <button onclick="updateKeyMapping()">Update Key Mapping</button>
+</div>
+
+<div class="section">
+    <h2>Display Settings</h2>
+    <form id="settingsForm">
+        <label>Layout: 
+            <select id="layout" onchange="updateButtonInputs(); updateColorInputs(); updateKeyMappingInputs()">
+                <option value="0">2x2 (4 buttons)</option>
+                <option value="1">3x2 (6 buttons)</option>
+            </select>
+        </label>
+        <label>Deep Sleep Timeout (seconds): 
+            <input type="number" name="timeout" id="timeout" min="10" max="3600" value="900">
+        </label>
+        
+        <h3>Info Mode Settings</h3>
+        <label>
+            <input type="checkbox" id="info_enabled" checked> Enable Info Mode
+        </label>
+        <label>Info Mode Timeout (seconds): 
+            <input type="number" name="info_timeout" id="info_timeout" min="30" max="600" value="120">
+        </label>
+        
+        <div class="color-input">
+            <label>Background Color:</label>
+            <input type="color" name="background" id="background" value="#0a1e46">
+        </div>
+        <div class="color-input">
+            <label>Active Button Color:</label>
+            <input type="color" name="active" id="active" value="#b4dcfa">
+        </div>
+        
+        <h3>Button Colors</h3>
+        <div id="colorInputsContainer">
+            <!-- Color inputs will be dynamically generated -->
+        </div>
+        
+        <button type="submit">Update Settings</button>
+    </form>
+</div>
+
+<div class="section">
+    <h2>Informational Mode Configuration</h2>
+    <form id="infoModeForm">
+        <label>Update Interval (seconds): 
+            <input type="number" name="update_interval" id="update_interval" min="1" max="3600" value="10">
+        </label>
+        <label>Font Size: 
+            <input type="number" name="font_size" id="font_size" min="10" max="100" value="20">
+        </label>
+        
+        <h3>Text Color</h3>
+        <div class="color-input">
+            <label>Primary Text Color:</label>
+            <input type="color" name="text_color" id="text_color" value="#ffffff">
+        </div>
+        <div class="color-input">
+            <label>Secondary Text Color:</label>
+            <input type="color" name="text_color_secondary" id="text_color_secondary" value="#cccccc">
+        </div>
+        
+        <button type="submit">Update Info Mode Settings</button>
+    </form>
+</div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>
