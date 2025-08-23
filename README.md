@@ -45,6 +45,23 @@ WiFi connection
 
 🚀 Quick Installation
 1. ESP32 Firmware
+
+You can flash the firmware in two ways:
+
+🔹 Option A: Web Flasher (Recommended, No IDE Needed)
+
+Open the CheapDeck Web Flasher
+ in Google Chrome or Microsoft Edge
+
+Plug in your ESP32 via USB
+
+Click Connect, select the COM port, then Install
+
+Enter your WiFi SSID & Password when prompted
+
+The ESP32 will reboot and connect to your WiFi automatically
+
+🔹 Option B: Arduino IDE (Manual Flashing)
 // Install libraries: TFT_eSPI, XPT2046_Touchscreen, ArduinoJson
 // Configure WiFi in arduino.h:
 const char* SSID = "Your_WiFi_Name";
@@ -135,4 +152,20 @@ Copy cheapdeck.ahk (or a shortcut) into:
 C:\Users\<YourName>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup
 
 This way, it launches automatically on login.
-Enjoy your CheapDeck🎮
+
+📁 Project Structure
+cheapdeck/
+├── arduino/           # ESP32 firmware
+├── api/              # Python service + web interface
+├── desktop-main/     # Electron desktop app
+└── README.md
+
+🔧 Troubleshooting
+
+ESP32 not found: Check WiFi credentials and network
+Keys not working: Install pynput, verify API running
+Touch issues: Adjust calibration values in firmware
+
+Debug Mode
+python api.py --debug
+python api.py --esp http://192.168.1.100  # Manual IP
