@@ -23,7 +23,7 @@ CheapDeck consists of:
 
 ### ESP32 Setup
 - ESP32 development board
-- TFT display with TFT_eSPI support
+- TFT display with TFT_eSPI support [Displaycfg](https://github.com/witnessmenow/ESP32-Cheap-Yellow-Display/tree/main/DisplayConfig)
 - XPT2046 touch controller
 
 ### PC Requirements
