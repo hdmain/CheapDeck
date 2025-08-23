@@ -1,0 +1,19 @@
+{
+  "name": "electron-python-template",
+  "version": "1.0.0",
+  "description": "Electron Python Template",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "api": "python api.py",
+    "install-python": "pip install -r requirements.txt",
+    "setup": "npm install && pip install -r requirements.txt",
+    "build": "npm run setup && npm start"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0"
+  },
+  "author": "template by hdmain",
+  "license": "MIT"
+}
