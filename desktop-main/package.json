@@ -1,0 +1,38 @@
+{
+  "name": "electron-python-template",
+  "version": "1.0.0",
+  "description": "Electron Python Template",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "api": "python api.py",
+    "install-python": "pip install -r requirements.txt",
+    "setup": "npm install && pip install -r requirements.txt",
+    "build": "npm run setup && npm start",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "auto-launch": "^5.0.6"
+  },
+  "author": "template by hdmain",
+  "license": "MIT",
+  "build": {
+    "appId": "com.cheapdeck.app",
+    "productName": "CheapDeck",
+    "files": [
+      "**/*",
+      "dist/api.exe"
+    ],
+    "extraResources": [
+      "dist/api.exe"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  }
+}
