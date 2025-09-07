@@ -2,6 +2,7 @@
 
 A complete **DIY Stream Deck alternative** built with **ESP32**, featuring a **touchscreen interface**, customizable buttons, and PC integration.
 
+![pic buttons](pic.png)
 ---
 
 ## 🔍 Overview
